@@ -1,0 +1,73 @@
+root_feat = '/globalwork/liu/cmu_feat'
+root_anno = '/globalwork/data/new-panoptic'
+
+on_frames = dict(
+	[
+		('170407_haggling_a1', 1590),
+		('170407_haggling_a2', 1150),
+		('170407_haggling_a3', 1310),
+		('170407_haggling_b1', 980),
+		('170407_haggling_b2', 990),
+		('170407_haggling_b3', 860),
+		('170404_haggling_a1', 1330),
+		('170404_haggling_a2', 1480),
+		('170404_haggling_a3', 240),
+		('170404_haggling_b1', 1460),
+		('170404_haggling_b2', 1440),
+		('170404_haggling_b3', 520),
+		('170228_haggling_a1', 740),
+		('170228_haggling_a2', 990),
+		('170228_haggling_a3', 1050),
+		('170228_haggling_b1', 1780),
+		('170228_haggling_b2', 1000),
+		('170228_haggling_b3', 1020),
+		('170224_haggling_a2', 1070),
+		('170224_haggling_a3', 600),
+		('170224_haggling_b1', 1340),
+		('170224_haggling_b2', 1320),
+		('170224_haggling_b3', 1040),
+		('170221_haggling_m1', 1950),
+		('170221_haggling_m2', 150),
+		('170221_haggling_m3', 250),
+		('170221_haggling_b1', 1050),
+		('170221_haggling_b2', 740),
+		('170221_haggling_b3', 210),
+		('160224_haggling1', 170),
+		('160226_haggling1', 130)
+	]
+)
+ab_frames = dict(
+	[
+		('170407_haggling_a1', 15660),
+		('170407_haggling_a2', 14990),
+		('170407_haggling_a3', 14060),
+		('170407_haggling_b1', 20100),
+		('170407_haggling_b2', 19860),
+		('170407_haggling_b3', 17210),
+		('170404_haggling_a1', 10790),
+		('170404_haggling_a2', 11140),
+		('170404_haggling_a3', 12090),
+		('170404_haggling_b1', 20520),
+		('170404_haggling_b2', 20710),
+		('170404_haggling_b3', 19070),
+		('170228_haggling_a1', 19910),
+		('170228_haggling_a2', 18860),
+		('170228_haggling_a3', 18480),
+		('170228_haggling_b1', 25470),
+		('170228_haggling_b2', 25030),
+		('170228_haggling_b3', 22170),
+		('170224_haggling_a2', 20240),
+		('170224_haggling_a3', 18720),
+		('170224_haggling_b1', 20810),
+		('170224_haggling_b2', 20490),
+		('170224_haggling_b3', 19400),
+		('170221_haggling_m1', 16560),
+		('170221_haggling_m2', 14730),
+		('170221_haggling_m3', 7320),
+		('170221_haggling_b1', 15130),
+		('170221_haggling_b2', 14990),
+		('170221_haggling_b3', 15110),
+		('160224_haggling1', 8880),
+		('160226_haggling1', 11590)
+	]
+)
