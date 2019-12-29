@@ -151,8 +151,7 @@ def fetch_samples(args, phase):
 	all_spec_mats = dict()
 	all_spec_cams = dict()
 
-	positives = []
-	negatives = []
+	samples = []
 
 	for sequence in sequences[phase]:
 
@@ -284,7 +283,7 @@ def fetch_samples(args, phase):
 
 			for anchor_frame in xrange(emerge_frame, vanish_frame, args.stride):
 
-				window = range(anchor_frame, anchor_frame + args.in_frames + 1)
+				window = range(anchor_frame, anchor_frame + args.in_frames)
 
 				occur_flag = [frame in occur_frames for frame in window]
 
@@ -304,29 +303,23 @@ def fetch_samples(args, phase):
 
 					cam_gt = body_poses[body_id][window[-1]][cam_name]
 
-					_assc_index = [assc_index[body_id][frame][cam_name] for frame in window[:-1]]
-
-					_last_index = assc_index[body_id][window[-1]][cam_name]
-
-					n_det = range(len(spec_atns[cam_name][window[-1] - start_frame]))
+					_assc_index = [assc_index[body_id][frame][cam_name] for frame in window]
 
 					anchor = anchor_frame - start_frame
 
-					positives += [TrackSample(sequence, cam_name, anchor, cam_gt, _assc_index + [_det_], args) for _det_ in n_det if _det_ == _last_index]
-					negatives += [TrackSample(sequence, cam_name, anchor, cam_gt, _assc_index + [_det_], args) for _det_ in n_det if _det_ != _last_index]
+					samples.append(TrackSample(sequence, cam_name, anchor, cam_gt, _assc_index))
 
 	print '=> tracks are ready'
 
-	print '=> n_positive:', len(positives)
-	print '=> n_negative:', len(negatives)
+	print '=> n_positive:', len(samples)
 
-	return positives, negatives, all_spec_atns, all_spec_mats, all_spec_cams
+	return samples, all_spec_atns, all_spec_mats, all_spec_cams
 
 
 def get_data_loader(args, phase):
-	positives, negatives, spec_atns, spec_mats, spec_cams = fetch_samples(args, phase)
+	samples, spec_atns, spec_mats, spec_cams = fetch_samples(args, phase)
 
-	dataset = Dataset(positives, negatives, spec_atns, spec_mats, spec_cams, args)
+	dataset = Dataset(samples, spec_atns, spec_mats, spec_cams, args)
 
 	if args.balance and phase == 'train':
 		n_samples = dataset.n_positives + dataset.n_negatives
@@ -343,10 +336,9 @@ def get_data_loader(args, phase):
 
 class Dataset(data.Dataset):
 
-	def __init__(self, positives, negatives, spec_atns, spec_mats, spec_cams, args):
+	def __init__(self, samples, spec_atns, spec_mats, spec_cams, args):
 
-		self.positives = positives
-		self.negatives = negatives
+		self.samples = samples
 
 		self.spec_atns = spec_atns
 		self.spec_mats = spec_mats
@@ -356,17 +348,14 @@ class Dataset(data.Dataset):
 		self.num_joints = args.num_joints
 		self.thresh_mask = args.thresh_mask
 
-		self.n_positives = len(positives)
-		self.n_negatives = len(negatives)
 
-
-	def parse_sample(self, sample, verdict):
+	def parse_sample(self, sample):
 
 		spec_atns = self.spec_atns[sample.sequence][sample.cam_name]
 		spec_mats = self.spec_mats[sample.sequence][sample.cam_name]
 		spec_cams = self.spec_cams[sample.sequence][sample.cam_name]
 
-		window = range(sample.anchor, sample.anchor + self.in_frames + 1)
+		window = range(sample.anchor, sample.anchor + self.in_frames)
 
 		assert len(window) == len(sample.assc_index)
 
@@ -374,24 +363,18 @@ class Dataset(data.Dataset):
 		assc_mats = [spec_mats[anchor][index] for anchor, index in xzip(window, sample.assc_index)]
 		assc_cams = [spec_cams[anchor][index] for anchor, index in xzip(window, sample.assc_index)]
 
-		assc_atns = np.stack(assc_atns, axis = -1).reshape(-1, self.in_frames + 1)
-		assc_mats = np.stack(assc_mats, axis = -1).reshape(-1, self.in_frames + 1)
-		assc_cams = np.stack(assc_cams, axis = -1).reshape(-1, self.in_frames + 1) / 10.0
+		assc_atns = np.stack(assc_atns, axis = -1).reshape(-1, self.in_frames)
+		assc_mats = np.stack(assc_mats, axis = -1).reshape(-1, self.in_frames)
+		assc_cams = np.stack(assc_cams, axis = -1).reshape(-1, self.in_frames) / 10.0
 
 		track_feat = np.vstack([assc_atns, assc_mats, assc_cams])
 
-		return track_feat[:, :-1], track_feat[:, -1], np.uint8([verdict]), sample.cam_gt[:, :3] / 10.0, np.uint8(self.thresh_mask <= sample.cam_gt[:, 3])
+		return track_feat[:, :-1], track_feat[:, -1], sample.cam_gt[:, :3] / 10.0, np.uint8(self.thresh_mask <= sample.cam_gt[:, 3])
 
 
 	def __getitem__(self, index):
-
-		if index < self.n_positives:
-			sample = self.positives[index]
-			return self.parse_sample(sample, True)
-		else:
-			sample = self.negatives[index - self.n_positives]
-			return self.parse_sample(sample, False)
+		return self.parse_sample(self.samples[index])
 
 
 	def __len__(self):
-		return self.n_positives + self.n_negatives
+		return len(self.samples)

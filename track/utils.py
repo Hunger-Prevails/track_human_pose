@@ -3,7 +3,7 @@ import numpy as np
 
 class TrackSample:
 
-	def __init__(self, sequence, cam_name, anchor, cam_gt, assc_index, args):
+	def __init__(self, sequence, cam_name, anchor, cam_gt, assc_index):
 		'''
 		Args:
 			cam_gt: (num_joints, 4) <float32>
