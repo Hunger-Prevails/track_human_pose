@@ -1,21 +1,6 @@
 import numpy as np
 
 
-class TrackSample:
-
-	def __init__(self, sequence, cam_name, anchor, cam_gt, assc_index):
-		'''
-		Args:
-			cam_gt: (num_joints, 4) <float32>
-			assc_index: (in_frames + 1) <list>
-		'''
-		self.sequence = sequence
-		self.cam_name = cam_name
-		self.anchor = anchor
-		self.cam_gt = cam_gt
-		self.assc_index = assc_index
-
-
 def analyze(accept, refine, agnost, true_cam, verdict, key_mask, thresh, decimal):
 	'''
 	Analyzes tracking performance of a single batch.
