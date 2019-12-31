@@ -9,7 +9,7 @@ class NaiveNet(nn.Module):
 
 		super(NaiveNet, self).__init__()
 
-		self.expand_conv = nn.Conv1d(args.num_joints * args.in_features, args.channels, 3, bias = False)
+		self.expand_conv = nn.Conv1d(args.n_joints * args.in_features, args.channels, 3, bias = False)
 		self.expand_bn = nn.BatchNorm1d(args.channels)
 
 		self.drop = nn.Dropout(args.dropout)
@@ -43,12 +43,12 @@ class NaiveNet(nn.Module):
 		self.smooth_convs = nn.ModuleList(self.smooth_convs)
 		self.smooth_bns = nn.ModuleList(self.smooth_bns)
 
-		self.lin_a = nn.Linear(args.channels + args.num_joints * args.in_features, args.channels)
+		self.lin_a = nn.Linear(args.channels + args.n_joints * args.in_features, args.channels)
 		self.lin_b = nn.Linear(args.channels, args.channels)
 
 		self.accept = nn.Linear(args.channels, 1)
-		self.refine = nn.Linear(args.channels, args.num_joints * 3)
-		self.agnost = nn.Linear(args.channels, args.num_joints * 3)
+		self.refine = nn.Linear(args.channels, args.n_joints * 3)
+		self.agnost = nn.Linear(args.channels, args.n_joints * 3)
 
 		for m in self.modules():
 			if isinstance(m, nn.Conv2d):
@@ -60,15 +60,15 @@ class NaiveNet(nn.Module):
 				nn.init.constant_(m.bias, 0)
 
 
-	def forward(self, x, y):
+	def forward(self, x, mask):
 		'''
 		Args:
-			x: (batch, num_joints x in_features, n_frames)
-			y: (batch, num_joints x in_features)
+			x: (batch, n_joints x in_features, n_frames)
+			y: (batch, n_joints x in_features)
 		Return:
 			accept: (batch, 1)
-			refine: (batch, num_joints x 3)
-			agnost: (batch, num_joints x 3)
+			refine: (batch, n_joints x 3)
+			agnost: (batch, n_joints x 3)
 		'''
 		assert x.size(-1) == sum(self.shift) + 3
 

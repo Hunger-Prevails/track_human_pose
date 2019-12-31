@@ -1,17 +1,17 @@
 import numpy as np
 
 
-def analyze(accept, refine, agnost, true_cam, verdict, key_mask, thresh, decimal):
+def analyze(accept, refine, agnost, true_cam, verdict, key_mask, thresh):
 	'''
 	Analyzes tracking performance of a single batch.
 
 	Args:
 		accept: (batch, 1) <float32>
-		refine: (batch, num_joints x 3) <float32>
-		agnost: (batch, num_joints x 3) <float32>
-		true_cam: (batch, num_joints, 3) <float32>
+		refine: (batch, n_joints x 3) <float32>
+		agnost: (batch, n_joints x 3) <float32>
+		true_cam: (batch, n_joints, 3) <float32>
 		verdict: (batch, 1) <bool>
-		key_mask: (batch, num_joints) <bool>
+		key_mask: (batch, n_joints) <bool>
 	'''
 	accept = 0 <= accept
 
@@ -35,9 +35,8 @@ def analyze(accept, refine, agnost, true_cam, verdict, key_mask, thresh, decimal
 	refine_dist = np.linalg.norm(refine.reshape(-1, 3)[refine_mask] - true_cam.reshape(-1, 3)[refine_mask], axis = -1)
 	agnost_dist = np.linalg.norm(agnost.reshape(-1, 3)[agnost_mask] - true_cam.reshape(-1, 3)[agnost_mask], axis = -1)
 
-	if decimal:
-		refine_dist *= 10.0
-		agnost_dist *= 10.0
+	refine_dist *= 10.0
+	agnost_dist *= 10.0
 
 	return dict(
 		accuracy = accuracy,
