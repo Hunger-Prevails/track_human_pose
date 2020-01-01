@@ -60,7 +60,7 @@ class Trainer:
             '''
             Args:
                 tracklet: (batch, n_joints x in_features, in_frames) <float32>
-                mask: (batch, in_frames) <float32>
+                mask: (batch, 1, in_frames) <float32>
                 cam_gt: (batch, n_joints x 3)
             '''
             if self.n_cudas:
@@ -182,7 +182,7 @@ class Trainer:
             cam_spec = cam_spec.cpu.numpy()
             cam_gt = cam_gt.cpu().numpy()
 
-            cam_stats.append(utils.analyze(cam_spec, cam_gt, self.thresh_score))
+            cam_stats.append(utils.analyze(cam_spec, cam_gt, self.n_joints, self.thresh_score))
 
         loss_avg /= total
 
@@ -195,8 +195,8 @@ class Trainer:
         message = '=> test Epoch[%d]' % (epoch)
         message += '  Loss: %1.4f' % (loss_avg)
         message += '  Mean: %1.4f' % (record['mean'])
-        message += '  Area under Curve: %1.4f' % (record['auc'])
-        message += '  Percent Correct: %1.4f' % (record['pck'])
+        message += '  AuC: %1.4f' % (record['score_auc'])
+        message += '  PcK: %1.4f' % (record['score_pck'])
 
         print ''
         print message

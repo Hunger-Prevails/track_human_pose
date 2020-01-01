@@ -1,80 +1,39 @@
 import numpy as np
 
 
-def analyze(accept, refine, agnost, true_cam, verdict, key_mask, thresh):
+def analyze(cam_spec, cam_gt, n_joints, thresh):
 	'''
 	Analyzes tracking performance of a single batch.
 
 	Args:
-		accept: (batch, 1) <float32>
-		refine: (batch, n_joints x 3) <float32>
-		agnost: (batch, n_joints x 3) <float32>
-		true_cam: (batch, n_joints, 3) <float32>
-		verdict: (batch, 1) <bool>
-		key_mask: (batch, n_joints) <bool>
+		cam_spec: (batch, n_joints x 3) <float32>
+		cam_gt: (batch, n_joints x 3) <float32>
 	'''
-	accept = 0 <= accept
+	cam_gt = cam_gt.reshape(-1, n_joints, 3) * 10.0
+	cam_spec = cam_spec.reshape(-1, n_joints, 3) * 10.0
 
-	CT = float(np.sum(accept & verdict) + np.sum(~accept & ~verdict))
-	TP = float(np.sum(accept & verdict))
-	FP = float(np.sum(accept & ~verdict))
-	FN = float(np.sum(~accept & verdict))
+	dist = np.linalg.norm(cam_spec - cam_gt, axis = -1).flatten()
 
-	assert CT + FP + FN != 0
-	assert TP + FP != 0
-	assert TP + FN != 0
-
-	accuracy = CT / (CT + FP + FN)
-	precision = TP / (TP + FP)
-	recall = TP / (TP + FN)
-	f_measure = 2 * precision * recall / (precision + recall)
-
-	refine_mask = (key_mask & verdict).flatten()
-	agnost_mask = (key_mask & ~verdict).flatten()
-
-	refine_dist = np.linalg.norm(refine.reshape(-1, 3)[refine_mask] - true_cam.reshape(-1, 3)[refine_mask], axis = -1)
-	agnost_dist = np.linalg.norm(agnost.reshape(-1, 3)[agnost_mask] - true_cam.reshape(-1, 3)[agnost_mask], axis = -1)
-
-	refine_dist *= 10.0
-	agnost_dist *= 10.0
+	score_pck = np.mean(dist / thresh <= 1.0)
+	score_auc = np.mean(np.maximum(0, 1 - dist / thresh))
 
 	return dict(
-		accuracy = accuracy,
-		precision = precision,
-		recall = recall,
-		f_measure = f_measure,
-		batch = accept.shape[0],
-		refine_mean = np.mean(refine_dist),
-		refine_auc = np.mean(np.maximum(0, 1 - refine_dist / thresh)),
-		refine_pck = np.mean((refine_dist / thresh) <= 1.0),
-		refine_count = refine_dist.shape[0],
-		agnost_mean = np.mean(agnost_dist),
-		agnost_auc = np.mean(np.maximum(0, 1 - agnost_dist / thresh)),
-		agnost_pck = np.mean((agnost_dist / thresh) <= 1.0),
-		agnost_count = agnost_dist.shape[0]
+		mean = np.mean(dist),
+		score_auc = score_auc,
+		score_pck = score_pck,
+		batch = dist.shape[0]
 	)
 
 
 def parse_epoch(stats):
 
-	keysets = []
-	keysets += [('accuracy', 'precision', 'recall', 'f_measure', 'batch')]
-	keysets += [('refine_mean', 'refine_auc', 'refine_pck', 'refine_count')]
-	keysets += [('agnost_mean', 'agnost_auc', 'agnost_pck', 'agnost_count')]
+	keys = ['mean', 'score_auc', 'score_pck', 'batch']
 
-	all_stats = dict()
+	values = np.array([[patch[key] for patch in stats] for key in keys])
 
-	for keys in keysets:
-
-		values = np.array([[patch[key] for patch in stats] for key in keys])
-
-		all_stats.update(
-			dict(
-				zip(
-					keys[:-1],
-					np.sum(values[-1] * values[:-1], axis = 1) / np.sum(values[-1])
-				)
-			)
+	return dict(
+		zip(
+			keys[:-1],
+			np.sum(values[-1] * values[:-1], axis = 1) / np.sum(values[-1])
 		)
-
-	return all_stats
+	)

@@ -90,13 +90,13 @@ class Dataset(data.Dataset):
 
 		for track_id, track in enumerate(gt_tracks):
 
-			self.samples += [Sample(frame, track_id) for frame in xrange(0, track.shape[0] - args.in_frames, args.sample_gap)]
+			self.samples += [Sample(frame, track_id) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
 
 	def parse_sample(self, sample):
 
 		sample = self.gt_tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
 
-		cam_gt = sample[-1]
+		cam_gt = sample[-1].flatten()
 
 		jitter = np.random.normal(loc = 0.0, scale = self.sigma, size = (self.in_frames, self.n_joints - 1, 3))
 
@@ -116,9 +116,11 @@ class Dataset(data.Dataset):
 
 		mask[occ_anchor:occ_anchor + occ_duration] = 0.0
 
-		sample = sample * mask.reshape(-1, 1, 1)
+		sample = sample.reshape(self.in_frames, -1).transpose()
 
-		return sample.reshape(-1, self.n_joints * 3).transpose(), mask, cam_gt.flatten()
+		mask = mask.reshape(-1, self.in_frames)
+
+		return sample * mask, mask, cam_gt
 
 	def __getitem__(self, index):
 		return self.parse_sample(self.samples[index])

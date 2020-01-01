@@ -10,7 +10,7 @@ parser.add_argument('-resume', action='store_true', help='whether to continue fr
 parser.add_argument('-balance', action='store_true', help='whether to balance sampling between positive and negative samples')
 parser.add_argument('-save_record', action='store_true', help='Path to save train record')
 
-# required options
+required options
 parser.add_argument('-model', required=True, help='Backbone architecture')
 parser.add_argument('-suffix', required=True, help='Model suffix')
 parser.add_argument('-save_path', required=True, help='Path to save train record')
@@ -18,20 +18,17 @@ parser.add_argument('-criterion', required=True, help='Loss formulation')
 
 # integer options
 parser.add_argument('-in_features', default=3, type=int, help='number of features for each joint')
-parser.add_argument('-in_frames', default=31, type=int, help='length of tracklet as input of the network')
+parser.add_argument('-in_frames', default=63, type=int, help='length of tracklet as input of the network')
 parser.add_argument('-n_joints', default=17, type=int, help='number of joints in the dataset')
 parser.add_argument('-batch_size', default=256, type=int, help='Size of mini-batches for each iteration')
 parser.add_argument('-n_cudas', default=1, type=int, help='Number of cuda devices available')
 parser.add_argument('-workers', default=1, type=int, help='Number of data-loading workers')
 parser.add_argument('-channels', default=1024, type=int, help='Number of convolution channels')
 parser.add_argument('-inflation', default=2, type=int, help='inflation rate of dilation among convolutions')
-parser.add_argument('-n_blocks', default=3, type=int, help='Number of blocks with skip connection')
-parser.add_argument('-kernel', default=3, type=int, help='universal kernel size of the convolutions')
-parser.add_argument('-base_index', default=2, type=int, help='index of base joint')
+parser.add_argument('-n_blocks', default=4, type=int, help='Number of blocks with skip connection')
 parser.add_argument('-n_prime', default=7, type=int, help='number of joints to take into consideration for a positive association')
 parser.add_argument('-n_epochs', default=20, type=int, help='Training epochs')
-parser.add_argument('-stride', default=10, type=int, help='stride with which the samling window slide through time')
-parser.add_argument('-sample_gap', default=5, type=int, help='the gap between two consecutive samples on one gt track')
+parser.add_argument('-stride', default=5, type=int, help='stride by which the samling window slide through time')
 
 # float options
 parser.add_argument('-sigma', default=1.0, type=float, help='sigma for normal sampling on keypoint jitter')
