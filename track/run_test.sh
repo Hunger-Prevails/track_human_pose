@@ -1,9 +1,8 @@
 python main.py \
 				-test_only \
-				-decimal \
-				-model Naive \
+				-model Partial \
 				-suffix debug \
-				-save_path /globalwork/liu/video_track \
-				-accept_crit BCEWithLogits \
-				-refine_crit SmoothL1 \
-				-agnost_crit SmoothL1
+				-save_path /globalwork/liu/track_camera_pose \
+				-criterion SmoothL1 \
+				-data_name mpihp \
+				-data_root /globalwork/data/mpi_inf_3dhp

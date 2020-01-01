@@ -336,17 +336,7 @@ def get_data_loader(args, phase):
 
 	dataset = Dataset(samples, spec_atns, spec_mats, spec_cams, args)
 
-	if args.balance and phase == 'train':
-		n_samples = dataset.n_positives + dataset.n_negatives
-
-		weight_positives = [float(n_samples) / dataset.n_positives] * dataset.n_positives
-		weight_negatives = [float(n_samples) / dataset.n_negatives] * dataset.n_negatives
-
-		sampler = data.WeightedRandomSampler(weight_positives + weight_negatives, n_samples)
-	else:
-		sampler = data.RandomSampler(dataset)
-
-	return data.DataLoader(dataset, args.batch_size, sampler = sampler, num_workers = args.workers, pin_memory = True)
+	return data.DataLoader(dataset, args.batch_size, shuffle = True if phase == 'train' else False, num_workers = args.workers, pin_memory = True)
 
 
 class Dataset(data.Dataset):

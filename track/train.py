@@ -17,6 +17,8 @@ class Trainer:
 
         self.list_params = list(model.parameters())
 
+        self.ones = torch.ones(1, 1, 3)
+
         if args.half_acc:
             self.copy_params = [param.clone().detach() for param in self.list_params]
             self.model = self.model.half()
@@ -42,6 +44,7 @@ class Trainer:
         self.criterion = nn.__dict__[args.criterion + 'Loss'](reduction = 'mean')
 
         if args.n_cudas:
+            self.ones = self.ones.cuda()
             self.criterion = self.criterion.cuda()
 
 
@@ -68,11 +71,11 @@ class Trainer:
 
                 mask = mask.half().to(cudevice) if self.half_acc else mask.to(cudevice)
 
-                cam_gt = cam_gt.half().to(cudevice) if self.half_acc else cam_gt.to(cudevice)
+                cam_gt = cam_gt.to(cudevice)
 
             batch = tracklet.size(0)
 
-            cam_spec = self.model(tracklet, mask)
+            cam_spec = self.model(tracklet, mask, self.ones)
 
             if self.half_acc:
                 cam_spec = cam_spec.float()
@@ -150,7 +153,7 @@ class Trainer:
 
         cam_stats = []
 
-        for i, (tracklet, mask, cam_gt) in enumerate(data_loader):
+        for i, (tracklet, mask, cam_gt) in enumerate(test_loader):
             '''
             Args:
                 tracklet: (batch, n_joints x in_features, in_frames) <float32>
@@ -162,16 +165,18 @@ class Trainer:
 
                 mask = mask.half().to(cudevice) if self.half_acc else mask.to(cudevice)
 
-                cam_gt = cam_gt.half().to(cudevice) if self.half_acc else cam_gt.to(cudevice)
+                cam_gt = cam_gt.to(cudevice)
 
             batch = tracklet.size(0)
 
-            cam_spec = self.model(tracklet, mask)
+            with torch.no_grad():
 
-            if self.half_acc:
-                cam_spec = cam_spec.float()
+                cam_spec = self.model(tracklet, mask, self.ones)
 
-            loss = self.criterion(cam_gt, cam_spec)
+                if self.half_acc:
+                    cam_spec = cam_spec.float()
+
+                loss = self.criterion(cam_gt, cam_spec)
 
             loss_avg += loss.item() * batch
 
@@ -179,7 +184,7 @@ class Trainer:
 
             print '| test Epoch[%d] [%d/%d] Loss: %1.4f' % (epoch, i, n_batches, loss.item())
 
-            cam_spec = cam_spec.cpu.numpy()
+            cam_spec = cam_spec.cpu().numpy()
             cam_gt = cam_gt.cpu().numpy()
 
             cam_stats.append(utils.analyze(cam_spec, cam_gt, self.n_joints, self.thresh_score))

@@ -11,8 +11,6 @@ class PartialNet(nn.Module):
 
 		self.drop = nn.Dropout(args.dropout)
 
-		self.ones = torch.ones(1, 1, 3)
-
 		self.dilate_convs = []
 		self.dilate_bns = []
 
@@ -62,11 +60,12 @@ class PartialNet(nn.Module):
 				nn.init.constant_(m.bias, 0)
 
 
-	def forward(self, x, mask, use_mask = True):
+	def forward(self, x, mask, ones):
 		'''
 		Args:
 			x: (batch, n_joints x in_features, n_frames)
 			mask: (batch, 1, n_frames)
+			ones: (1, 1, 3)
 		Return:
 			(batch, n_joints x 3)
 		'''
@@ -76,15 +75,13 @@ class PartialNet(nn.Module):
 
 		expand_x = self.expand_conv(x)
 
-		if use_mask:
+		expand_mask = F.conv1d(mask, ones)
 
-			expand_mask = F.conv1d(mask, self.ones)
+		mask = (expand_mask != 0).float()
 
-			mask = (expand_mask != 0).float()
+		multiplier = (1.0 / (expand_mask + 1e-6)) * mask
 
-			multiplier = (1.0 / (expand_mask + 1e-6)) * mask
-
-			expand_x *= multiplier
+		expand_x *= multiplier
 
 		x = self.drop(F.relu(self.expand_bn(expand_x)))
 
@@ -94,15 +91,13 @@ class PartialNet(nn.Module):
 
 			dilate_x = self.dilate_convs[k](x)
 
-			if use_mask:
+			dilate_mask = F.conv1d(mask, ones, dilation = self.dilations[k])
 
-				dilate_mask = F.conv1d(mask, self.ones, dilation = self.dilations[k])
+			mask = (dilate_mask != 0).float()
 
-				mask = (dilate_mask != 0).float()
+			multiplier = (1.0 / (dilate_mask + 1e-6)) * mask
 
-				multiplier = (1.0 / (dilate_mask + 1e-6)) * mask
-
-				dilate_x *= multiplier
+			dilate_x *= multiplier
 
 			x = self.drop(F.relu(self.dilate_bns[k](dilate_x)))
 			x = self.drop(F.relu(self.smooth_bns[k](self.smooth_convs[k](x))))

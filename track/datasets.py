@@ -40,7 +40,7 @@ def fetch_mpihp_tracks(args, phase):
 
 			for cam_id in camera_ids:
 
-				gt_tracks.append(cam_coords[cam_id] / 100.0)
+				gt_tracks.append((cam_coords[cam_id] / 100.0).astype(np.float32))
 	else:
 		selection = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 14]
 
@@ -52,9 +52,9 @@ def fetch_mpihp_tracks(args, phase):
 
 			with h5py.File(anno_path, 'r') as anno:
 
-				cam_coords = np.array(anno['annot3'])[:, 0, selection]
+				cam_coords = np.asarray(anno['annot3'])[:, 0, selection]
 
-				gt_tracks.append(cam_coords / 100.0)
+				gt_tracks.append((cam_coords / 100.0).astype(np.float32))
 
 				anno.close()
 
@@ -105,10 +105,10 @@ class Dataset(data.Dataset):
 
 		jitter_root = np.concatenate([jitter_root_xy, jitter_root_zz], axis = -1)
 
-		sample[:, self.n_joints - 1] += jitter
+		sample[:, :-1] += jitter
 		sample += jitter_root
 
-		mask = np.ones(self.in_frames)
+		mask = np.ones(self.in_frames).astype(np.float32)
 
 		occ_anchor = np.random.randint(low = 0, high = self.in_frames)
 
