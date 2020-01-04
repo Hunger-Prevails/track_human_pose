@@ -1,16 +1,17 @@
 import numpy as np
 
 
-def analyze(cam_spec, cam_gt, n_joints, thresh):
+def analyze(cam_spec, cam_gt, blind, n_joints, thresh):
 	'''
 	Analyzes tracking performance of a single batch.
 
 	Args:
 		cam_spec: (batch, n_joints x 3) <float32>
 		cam_gt: (batch, n_joints x 3) <float32>
+		blind: (batch,) <bool>
 	'''
-	cam_gt = cam_gt.reshape(-1, n_joints, 3) * 10.0
-	cam_spec = cam_spec.reshape(-1, n_joints, 3) * 10.0
+	cam_gt = cam_gt.reshape(-1, n_joints, 3) * 100.0
+	cam_spec = cam_spec.reshape(-1, n_joints, 3) * 100.0
 
 	dist = np.linalg.norm(cam_spec - cam_gt, axis = -1).flatten()
 

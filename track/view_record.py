@@ -2,8 +2,8 @@ import torch
 import sys
 import numpy as np
 
-def main(suffix, *keys):
-	record = torch.load('/globalwork/liu/video_track/' + suffix + '/train_record.pth')
+def main(model, suffix, *keys):
+	record = torch.load('/globalwork/liu/track_camera_pose/' + model + '-' + suffix + '/train_record.pth')
 
 	for key in keys:
 		strings = ['%2.4f' % (val) for val in record[key]]
@@ -15,7 +15,7 @@ def main(suffix, *keys):
 		print 'max:', max_idx + 1, strings[max_idx]
 		print 'min:', min_idx + 1, strings[min_idx]
 
-	best = torch.load('/globalwork/liu/video_track/' + suffix + '/best.pth')['best']
+	best = torch.load('/globalwork/liu/track_camera_pose/' + model + '-' + suffix + '/best.pth')['best']
 
 	print '-' * 40
 	print 'best:', best

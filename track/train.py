@@ -64,7 +64,7 @@ class Trainer:
             Args:
                 tracklet: (batch, n_joints x in_features, in_frames) <float32>
                 mask: (batch, 1, in_frames) <float32>
-                cam_gt: (batch, n_joints x 3)
+                cam_gt: (batch, n_joints x 3) <float32>
             '''
             if self.n_cudas:
                 tracklet = tracklet.half().to(cudevice) if self.half_acc else tracklet.to(cudevice)
@@ -80,7 +80,7 @@ class Trainer:
             if self.half_acc:
                 cam_spec = cam_spec.float()
 
-            loss = self.criterion(cam_gt, cam_spec)
+            loss = self.criterion(cam_spec, cam_gt)
 
             loss_avg += loss.item() * batch
 
@@ -153,12 +153,13 @@ class Trainer:
 
         cam_stats = []
 
-        for i, (tracklet, mask, cam_gt) in enumerate(test_loader):
+        for i, (tracklet, mask, cam_gt, blind) in enumerate(test_loader):
             '''
             Args:
                 tracklet: (batch, n_joints x in_features, in_frames) <float32>
                 mask: (batch, in_frames) <float32>
-                cam_gt: (batch, n_joints x 3)
+                cam_gt: (batch, n_joints x 3) <float32>
+                blind: (batch,) <uint8>
             '''
             if self.n_cudas:
                 tracklet = tracklet.half().to(cudevice) if self.half_acc else tracklet.to(cudevice)
@@ -176,7 +177,7 @@ class Trainer:
                 if self.half_acc:
                     cam_spec = cam_spec.float()
 
-                loss = self.criterion(cam_gt, cam_spec)
+                loss = self.criterion(cam_spec, cam_gt)
 
             loss_avg += loss.item() * batch
 
@@ -187,12 +188,11 @@ class Trainer:
             cam_spec = cam_spec.cpu().numpy()
             cam_gt = cam_gt.cpu().numpy()
 
-            cam_stats.append(utils.analyze(cam_spec, cam_gt, self.n_joints, self.thresh_score))
+            blind = blind.numpy().astype(np.bool)
+
+            cam_stats.append(utils.analyze(cam_spec, cam_gt, blind, self.n_joints, self.thresh_score))
 
         loss_avg /= total
-
-        print ''
-        print '=> train Epoch[%d]  Loss: %1.4f' % (epoch, loss_avg)
 
         record = dict(test_loss = loss_avg)
         record.update(utils.parse_epoch(cam_stats))

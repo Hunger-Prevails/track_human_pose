@@ -47,14 +47,14 @@ class PartialNet(nn.Module):
 		self.smooth_bns = nn.ModuleList(self.smooth_bns)
 
 		self.a_lin = nn.Linear(args.channels, args.channels)
-		self.a_bn = nn.BatchNorm1d(args.channels)
 		self.b_lin = nn.Linear(args.channels, args.n_joints * 3)
 
 		for m in self.modules():
 			if isinstance(m, nn.Conv2d):
 				nn.init.kaiming_normal_(m.weight, mode = 'fan_out', nonlinearity = 'relu')
 			elif isinstance(m, nn.Linear):
-				nn.init.normal_(m.weight, mean = 0.0, std = (2.0 / (m.in_features + m.out_features)) ** 0.5)
+				nn.init.normal_(m.weight, 0, 0.01)
+				nn.init.constant_(m.bias, 0)
 			elif isinstance(m, nn.BatchNorm2d):
 				nn.init.constant_(m.weight, 1)
 				nn.init.constant_(m.bias, 0)
@@ -87,7 +87,7 @@ class PartialNet(nn.Module):
 
 		for k in xrange(self.n_blocks):
 
-			res = x[:, :, self.dilations[k]:x.size(-1) - self.dilations[k]]
+			res = x[:, :, self.dilations[k] * 2:]
 
 			dilate_x = self.dilate_convs[k](x)
 
@@ -100,10 +100,13 @@ class PartialNet(nn.Module):
 			dilate_x *= multiplier
 
 			x = self.drop(F.relu(self.dilate_bns[k](dilate_x)))
+
 			x = self.drop(F.relu(self.smooth_bns[k](self.smooth_convs[k](x))))
 
 			x += res
 
-		x = self.drop(F.relu(self.a_bn(self.a_lin(x.squeeze(-1)))))
+		x = x.squeeze(-1)
+
+		x = self.drop(F.relu(self.a_lin(x)))
 
 		return self.b_lin(x)

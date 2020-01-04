@@ -11,6 +11,7 @@ import torch.utils.data as data
 
 from builtins import zip as xzip
 
+np.set_printoptions(precision = 3)
 
 class Sample:
 
@@ -40,7 +41,7 @@ def fetch_mpihp_tracks(args, phase):
 
 			for cam_id in camera_ids:
 
-				gt_tracks.append((cam_coords[cam_id] / 100.0).astype(np.float32))
+				gt_tracks.append((cam_coords[cam_id] / 1000.0).astype(np.float32))
 	else:
 		selection = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 14]
 
@@ -54,7 +55,7 @@ def fetch_mpihp_tracks(args, phase):
 
 				cam_coords = np.asarray(anno['annot3'])[:, 0, selection]
 
-				gt_tracks.append((cam_coords / 100.0).astype(np.float32))
+				gt_tracks.append((cam_coords / 1000.0).astype(np.float32))
 
 				anno.close()
 
@@ -65,19 +66,21 @@ def get_data_loader(args, phase):
 
 	gt_tracks = globals()['fetch_' + args.data_name + '_tracks'](args, phase)
 
-	dataset = Dataset(gt_tracks, args)
+	dataset = Dataset(gt_tracks, args, phase)
 
 	return data.DataLoader(dataset, args.batch_size, shuffle = True if phase == 'train' else False, num_workers = args.workers, pin_memory = True)
 
 
 class Dataset(data.Dataset):
 
-	def __init__(self, gt_tracks, args):
+	def __init__(self, gt_tracks, args, phase):
 
 		self.in_frames = args.in_frames
 		self.n_joints = args.n_joints
 
 		self.gt_tracks = gt_tracks
+
+		self.on_test = phase != 'train'
 
 		self.sigma = args.sigma
 
@@ -105,22 +108,27 @@ class Dataset(data.Dataset):
 
 		jitter_root = np.concatenate([jitter_root_xy, jitter_root_zz], axis = -1)
 
-		sample[:, :-1] += jitter
-		sample += jitter_root
+		# sample[:, :-1] += jitter
+		# sample += jitter_root
 
 		mask = np.ones(self.in_frames).astype(np.float32)
 
-		occ_anchor = np.random.randint(low = 0, high = self.in_frames)
+		occ_anchor = np.random.randint(low = 0, high = self.in_frames + 1)
 
-		occ_duration = int(np.floor(np.random.exponential(scale = self.beta)))
+		occ_duration = int(np.round(np.random.exponential(scale = self.beta)))
 
-		mask[occ_anchor:occ_anchor + occ_duration] = 0.0
+		blind = self.in_frames <= occ_anchor + occ_duration and occ_anchor < self.in_frames
+
+		# mask[occ_anchor:occ_anchor + occ_duration] = 0.0
 
 		sample = sample.reshape(self.in_frames, -1).transpose()
 
 		mask = mask.reshape(-1, self.in_frames)
 
-		return sample * mask, mask, cam_gt
+		if self.on_test:
+			return sample * mask, mask, cam_gt, np.uint8([blind])
+		else:
+			return sample * mask, mask, cam_gt
 
 	def __getitem__(self, index):
 		return self.parse_sample(self.samples[index])
