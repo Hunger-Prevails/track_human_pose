@@ -18,7 +18,7 @@ class Logger:
         assert args.save_record != args.test_only
 
         self.save_record = args.save_record
-        self.train_record = torch.load(os.path.join(self.save_path, 'train_record.pth')) if args.resume else None
+        self.train_record = None
 
 
     def record(self, epoch, train_recs, test_recs, model):

@@ -27,11 +27,11 @@ parser.add_argument('-channels', default=1024, type=int, help='Number of convolu
 parser.add_argument('-inflation', default=2, type=int, help='inflation rate of dilation among convolutions')
 parser.add_argument('-n_blocks', default=4, type=int, help='Number of blocks with skip connection')
 parser.add_argument('-n_prime', default=7, type=int, help='number of joints to take into consideration for a positive association')
-parser.add_argument('-n_epochs', default=20, type=int, help='Training epochs')
+parser.add_argument('-n_epochs', default=40, type=int, help='Training epochs')
 parser.add_argument('-stride', default=5, type=int, help='stride by which the samling window slide through time')
 
 # float options
-parser.add_argument('-sigma', default=0.05, type=float, help='sigma for normal sampling on keypoint jitter')
+parser.add_argument('-sigma', default=0.02, type=float, help='sigma for normal sampling on keypoint jitter')
 parser.add_argument('-sigma_root_xy', default=0.1, type=float, help='sigma for normal sampling on root-xy jitter')
 parser.add_argument('-sigma_root_zz', default=0.2, type=float, help='sigma for normal sampling on root-zz jitter')
 parser.add_argument('-beta', default=5.0, type=float, help='reciprocal of lamba for exponential sampling on occlusion duration')

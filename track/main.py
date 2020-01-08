@@ -34,7 +34,6 @@ def create_model(args):
         checkpoint = torch.load(args.model_path)
         
         model.load_state_dict(checkpoint['model'])
-        state = checkpoint['state']
 
     if args.n_cudas:
         cudnn.benchmark = True

@@ -5,6 +5,7 @@ import numpy as np
 import torch.optim as optim
 
 from builtins import zip as xzip
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class Trainer:
@@ -187,7 +188,28 @@ class Trainer:
 
             cam_spec = cam_spec.cpu().numpy()
             cam_gt = cam_gt.cpu().numpy()
+            '''
+            tracklet = tracklet.cpu().numpy()
 
+            from plot import show_cam
+
+            import matplotlib.pyplot as plt
+
+            for ii in xrange(batch):
+
+                plt.figure(figsize = (16, 12))
+                ax = plt.subplot(1, 1, 1, projection = '3d')
+
+                ii_last = tracklet[ii, :, -1].reshape(1, self.n_joints, 3).transpose(0, 2, 1) * 100.0
+                ii_cam_gt = cam_gt[ii].reshape(1, self.n_joints, 3).transpose(0, 2, 1) * 100.0
+                ii_cam_spec = cam_spec[ii].reshape(1, self.n_joints, 3).transpose(0, 2, 1) * 100.0
+
+                show_cam(ii_last, ax, color = 'b')
+                show_cam(ii_cam_gt, ax, color = 'g')
+                show_cam(ii_cam_spec, ax, color = 'r')
+
+                plt.show()
+            '''
             blind = blind.numpy().astype(np.bool)
 
             cam_stats.append(utils.analyze(cam_spec, cam_gt, blind, self.n_joints, self.thresh_score))

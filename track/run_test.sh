@@ -1,7 +1,7 @@
 python main.py \
 				-test_only \
 				-model Partial \
-				-suffix debug \
+				-suffix both \
 				-save_path /globalwork/liu/track_camera_pose \
 				-criterion SmoothL1 \
 				-data_name mpihp \

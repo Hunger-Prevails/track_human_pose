@@ -83,7 +83,7 @@ class PartialNet(nn.Module):
 
 		expand_x *= multiplier
 
-		x = self.drop(F.relu(self.expand_bn(expand_x)))
+		x = F.relu(self.expand_bn(expand_x))
 
 		for k in xrange(self.n_blocks):
 
@@ -99,14 +99,14 @@ class PartialNet(nn.Module):
 
 			dilate_x *= multiplier
 
-			x = self.drop(F.relu(self.dilate_bns[k](dilate_x)))
+			x = F.relu(self.dilate_bns[k](dilate_x))
 
-			x = self.drop(F.relu(self.smooth_bns[k](self.smooth_convs[k](x))))
+			x = F.relu(self.smooth_bns[k](self.smooth_convs[k](x)))
 
 			x += res
 
 		x = x.squeeze(-1)
 
-		x = self.drop(F.relu(self.a_lin(x)))
+		x = F.relu(self.a_lin(x))
 
 		return self.b_lin(x)
