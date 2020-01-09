@@ -197,6 +197,9 @@ class Trainer:
 
             for ii in xrange(batch):
 
+                if ii % 10 != 0:
+                    continue
+
                 plt.figure(figsize = (16, 12))
                 ax = plt.subplot(1, 1, 1, projection = '3d')
 
