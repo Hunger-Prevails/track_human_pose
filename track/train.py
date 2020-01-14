@@ -12,30 +12,17 @@ class Trainer:
 
     def __init__(self, args, model):
 
-        assert args.half_acc <= args.n_cudas
-
         self.model = model
-
-        self.list_params = list(model.parameters())
 
         self.ones = torch.ones(1, 1, 3)
 
-        if args.half_acc:
-            self.copy_params = [param.clone().detach() for param in self.list_params]
-            self.model = self.model.half()
-
-            for param in self.copy_params:
-                param.requires_grad = True
-                param.grad = param.data.new_zeros(param.size())
-
-            self.optimizer = optim.Adam(self.copy_params, args.learn_rate, weight_decay = args.weight_decay)
-        else:
-            self.optimizer = optim.Adam(self.list_params, args.learn_rate, weight_decay = args.weight_decay)
+        self.optimizer = optim.Adam(model.parameters(), args.learn_rate, weight_decay = args.weight_decay)
 
         self.thresh_score = args.thresh_score
         self.n_cudas = args.n_cudas
         self.n_joints = args.n_joints
         self.half_acc = args.half_acc
+        self.in_frames = args.in_frames
 
         self.learn_rate = args.learn_rate
         self.num_epochs = args.n_epochs
@@ -60,84 +47,58 @@ class Trainer:
         loss_avg = 0
         total = 0
 
-        for i, (tracklet, mask, cam_gt) in enumerate(data_loader):
+        for i, (rootrel_track, root_track, mask, cam_gt) in enumerate(data_loader):
             '''
             Args:
-                tracklet: (batch, n_joints x in_features, in_frames) <float32>
+                rootrel_track: (batch, 16 x 3, in_frames) <float32>
+                root_track: (batch, 3, in_frames) <float32>
                 mask: (batch, 1, in_frames) <float32>
-                cam_gt: (batch, n_joints x 3) <float32>
+                cam_gt: (batch, 17, 3) <float32>
             '''
             if self.n_cudas:
-                tracklet = tracklet.half().to(cudevice) if self.half_acc else tracklet.to(cudevice)
+                rootrel_track = rootrel_track.to(cudevice)
 
-                mask = mask.half().to(cudevice) if self.half_acc else mask.to(cudevice)
+                root_track = root_track.to(cudevice)
+
+                mask = mask.to(cudevice)
 
                 cam_gt = cam_gt.to(cudevice)
 
-            batch = tracklet.size(0)
+            batch = mask.size(0)
 
-            cam_spec = self.model(tracklet, mask, self.ones)
+            rootrel_spec, root_spec = self.model(rootrel_track, root_track, mask, self.ones)
 
-            if self.half_acc:
-                cam_spec = cam_spec.float()
+            rootrel_spec = rootrel_spec.view(batch, -1, 3)  # (batch, 16, 3)
 
-            loss = self.criterion(cam_spec, cam_gt)
+            rootrel_gt = cam_gt[:, :-1] - cam_gt[:, -1:]  # (batch, 16, 3)
+
+            loss_rootrel = self.criterion(rootrel_spec, rootrel_gt)
+
+            root_spec = root_spec.view(batch, -1, 3)  # (batch, 1, 3)
+
+            root_gt = cam_gt[:, -1:]  # (batch, 1, 3)
+
+            loss_root = self.criterion(root_spec, root_gt)
+
+            loss = loss_root + loss_rootrel
 
             loss_avg += loss.item() * batch
 
-            if self.half_acc:
-                loss *= self.grad_scaling
+            self.optimizer.zero_grad()
+            loss.backward()
 
-                for h_param in self.list_params:
-
-                    if h_param.grad is None:
-                        continue
-
-                    h_param.grad.detach_()
-                    h_param.grad.zero_()
-
-                loss.backward()
-
-                self.optimizer.zero_grad()
-
-                do_update = True
-
-                for c_param, h_param in xzip(self.copy_params, self.list_params):
-
-                    if h_param.grad is None:
-                        continue
-
-                    if torch.any(torch.isinf(h_param.grad)):
-                        do_update = False
-                        print 'update step skipped'
-                        break
-
-                    c_param.grad.copy_(h_param.grad)
-                    c_param.grad /= self.grad_scaling
-
-                if do_update:
-                    nn.utils.clip_grad_norm_(self.copy_params, self.grad_norm)
-
-                    self.optimizer.step()
-
-                    for c_param, h_param in xzip(self.copy_params, self.list_params):
-                        h_param.data.copy_(c_param.data)
-
-            else:
-                self.optimizer.zero_grad()
-                loss.backward()
-
-                nn.utils.clip_grad_norm_(self.list_params, self.grad_norm)
-                self.optimizer.step()
+            nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_norm)
+            self.optimizer.step()
 
             total += batch
 
-            print '| train Epoch[%d] [%d/%d] Loss: %1.4f' % (epoch, i, n_batches, loss.item())
+            print '| train Epoch[%d] [%d/%d]  Rootrel Loss: %1.4f  Root Loss: %1.4f' % (epoch, i, n_batches, loss_rootrel.item(), loss_root.item())
 
         loss_avg /= total
 
         print ''
         print '=> train Epoch[%d]  Loss: %1.4f' % (epoch, loss_avg)
+        print ''
 
         return dict(train_loss = loss_avg)
 
@@ -154,31 +115,43 @@ class Trainer:
 
         cam_stats = []
 
-        for i, (tracklet, mask, cam_gt, blind) in enumerate(test_loader):
+        for i, (rootrel_track, root_track, mask, cam_gt, blind) in enumerate(test_loader):
             '''
             Args:
-                tracklet: (batch, n_joints x in_features, in_frames) <float32>
-                mask: (batch, in_frames) <float32>
-                cam_gt: (batch, n_joints x 3) <float32>
+                rootrel_track: (batch, 16 x 3, in_frames) <float32>
+                root_track: (batch, 3, in_frames) <float32>
+                mask: (batch, 1, in_frames) <float32>
+                cam_gt: (batch, 17, 3) <float32>
                 blind: (batch,) <uint8>
             '''
             if self.n_cudas:
-                tracklet = tracklet.half().to(cudevice) if self.half_acc else tracklet.to(cudevice)
+                rootrel_track = rootrel_track.to(cudevice)
 
-                mask = mask.half().to(cudevice) if self.half_acc else mask.to(cudevice)
+                root_track = root_track.to(cudevice)
+
+                mask = mask.to(cudevice)
 
                 cam_gt = cam_gt.to(cudevice)
 
-            batch = tracklet.size(0)
+            batch = mask.size(0)
 
             with torch.no_grad():
 
-                cam_spec = self.model(tracklet, mask, self.ones)
+                rootrel_spec, root_spec = self.model(rootrel_track, root_track, mask, self.ones)
 
-                if self.half_acc:
-                    cam_spec = cam_spec.float()
+                rootrel_spec = rootrel_spec.view(batch, -1, 3)  # (batch, 16, 3)
 
-                loss = self.criterion(cam_spec, cam_gt)
+                rootrel_gt = cam_gt[:, :-1] - cam_gt[:, -1:]  # (batch, 16, 3)
+
+                loss_rootrel = self.criterion(rootrel_spec, rootrel_gt)
+
+                root_spec = root_spec.view(batch, -1, 3)  # (batch, 1, 3)
+
+                root_gt = cam_gt[:, -1:]  # (batch, 1, 3)
+
+                loss_root = self.criterion(root_spec, root_gt)
+
+                loss = loss_root + loss_rootrel
 
             loss_avg += loss.item() * batch
 
@@ -186,10 +159,19 @@ class Trainer:
 
             print '| test Epoch[%d] [%d/%d] Loss: %1.4f' % (epoch, i, n_batches, loss.item())
 
-            cam_spec = cam_spec.cpu().numpy()
+            rootrel_spec = rootrel_spec.cpu().numpy()
+
+            root_spec = root_spec.cpu().numpy()
+
+            cam_spec = np.concatenate([(rootrel_spec + root_spec), root_spec], axis = 1)
+
             cam_gt = cam_gt.cpu().numpy()
             '''
-            tracklet = tracklet.cpu().numpy()
+            rootrel_track = rootrel_track.cpu().numpy().reshape(batch, -1, 3, self.in_frames)
+
+            root_track = root_track.cpu().numpy().reshape(batch, -1, 3, self.in_frames)
+
+            cam_track = np.concatenate([rootrel_track + root_track, root_track], axis = 1)
 
             from plot import show_cam
 
@@ -203,13 +185,13 @@ class Trainer:
                 plt.figure(figsize = (16, 12))
                 ax = plt.subplot(1, 1, 1, projection = '3d')
 
-                ii_last = tracklet[ii, :, -1].reshape(1, self.n_joints, 3).transpose(0, 2, 1) * 100.0
-                ii_cam_gt = cam_gt[ii].reshape(1, self.n_joints, 3).transpose(0, 2, 1) * 100.0
-                ii_cam_spec = cam_spec[ii].reshape(1, self.n_joints, 3).transpose(0, 2, 1) * 100.0
+                ii_last = cam_track[ii, :, :, -1].transpose() * 100.0
+                ii_cam_gt = cam_gt[ii].transpose() * 100.0
+                ii_cam_spec = cam_spec[ii].transpose() * 100.0
 
-                show_cam(ii_last, ax, color = 'b')
-                show_cam(ii_cam_gt, ax, color = 'g')
-                show_cam(ii_cam_spec, ax, color = 'r')
+                show_cam(np.expand_dims(ii_last, axis = 0), ax, color = np.array([0.0, 0.0, 1.0]))
+                show_cam(np.expand_dims(ii_cam_gt, axis = 0), ax, color = np.array([0.0, 1.0, 0.0]))
+                show_cam(np.expand_dims(ii_cam_spec, axis = 0), ax, color = np.array([1.0, 0.0, 0.0]))
 
                 plt.show()
             '''

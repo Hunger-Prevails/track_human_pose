@@ -1,7 +1,7 @@
 python main.py \
 				-save_record \
-				-model Stride \
-				-suffix auto \
+				-model Diff \
+				-suffix baseline \
 				-save_path /globalwork/liu/track_camera_pose \
 				-criterion SmoothL1 \
 				-data_name mpihp \

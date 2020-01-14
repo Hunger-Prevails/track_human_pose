@@ -84,10 +84,9 @@ class Lecture(data.Dataset):
 		self.gt_tracks = gt_tracks
 
 		self.sigma = args.sigma
-
+		self.zeta = args.zeta
 		self.sigma_root_xy = args.sigma_root_xy
 		self.sigma_root_zz = args.sigma_root_zz
-
 		self.beta = args.beta
 
 		self.samples = []
@@ -96,24 +95,44 @@ class Lecture(data.Dataset):
 
 			self.samples += [Sample(frame, track_id) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
 
+		landmarks = np.linspace(-1.0, 1.0, args.in_frames).reshape(-1, 1)
+
+		self.kernel = landmarks ** 2 + landmarks.T ** 2 - 2 * np.dot(landmarks, landmarks.T)
+
+		self.kernel = np.exp(- 0.5 / args.zeta * self.kernel)
+
 
 	def parse_sample(self, sample):
 
-		sample = self.gt_tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
+		gt_track = self.gt_tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
 
-		cam_gt = sample[-1].flatten()
+		cam_gt = gt_track[-1]
+
+		track = gt_track.copy()
 
 		jitter = np.random.normal(loc = 0.0, scale = self.sigma, size = (self.in_frames, self.n_joints - 1, 3))
 
-		sample[:, :-1] += jitter
+		track[:, :-1] += np.einsum('ai,ibc->abc', self.kernel, jitter)
 
 		jitter_root_xy = np.random.normal(loc = 0.0, scale = self.sigma_root_xy, size = (self.in_frames, 1, 2))
 		jitter_root_zz = np.random.normal(loc = 0.0, scale = self.sigma_root_zz, size = (self.in_frames, 1, 1))
 
 		jitter_root = np.concatenate([jitter_root_xy, jitter_root_zz], axis = -1)
 
-		sample += jitter_root
+		track += np.einsum('ai,ibc->abc', self.kernel, jitter_root)
+		'''
+		from plot import show_cam
 
+		import matplotlib.pyplot as plt
+
+		plt.figure(figsize = (16, 12))
+		ax = plt.subplot(1, 1, 1, projection = '3d')
+
+		show_cam(track[2::6].transpose(0, 2, 1) * 100.0, ax, color = np.array([0.0, 0.0, 1.0]))
+		show_cam(gt_track[2::6].transpose(0, 2, 1) * 100.0, ax, color = np.array([0.0, 1.0, 0.0]))
+
+		plt.show()
+		'''
 		mask = np.ones(self.in_frames).astype(np.float32)
 
 		occ_anchor = np.random.randint(low = 0, high = self.in_frames + 1)
@@ -124,11 +143,17 @@ class Lecture(data.Dataset):
 
 		mask[occ_anchor:occ_anchor + occ_duration] = 0.0
 
-		sample = sample.reshape(self.in_frames, -1).transpose()
+		track = track.transpose(1, 2, 0)  # (17, 3, in_frames)
 
-		mask = mask.reshape(-1, self.in_frames)
+		mask = mask.reshape(-1, self.in_frames)  # (1, in_frames)
 
-		return sample * mask, mask, cam_gt
+		track = track * mask
+
+		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)  # (16 x 3, in_frames)
+
+		root_track = track[-1]  # (3, in_frames)
+
+		return rootrel_track, root_track, mask, cam_gt
 
 
 	def __getitem__(self, index):
@@ -148,7 +173,7 @@ class Exam(data.Dataset):
 
 		self.samples = []
 
-		self.shift_tracks = []
+		self.tracks = []
 
 		root_random = '/globalwork/liu/mpihp_random'
 
@@ -210,20 +235,22 @@ class Exam(data.Dataset):
 
 				np.save(path_jitter_root, jitter_root)
 
-			shift_track = track.copy()
+			landmarks = np.linspace(- track.shape[0] / args.in_frames, track.shape[0] / args.in_frames, track.shape[0]).reshape(-1, 1)
 
-			shift_track[:, :-1] += jitter
+			kernel = landmarks ** 2 + landmarks.T ** 2 - 2 * np.dot(landmarks, landmarks.T)
 
-			shift_track += jitter_root
+			kernel = np.exp(- 0.5 / args.zeta * kernel)
 
-			self.shift_tracks.append(shift_track)
+			track[:, :-1] += np.einsum('ai,ibc->abc', kernel, jitter)
+
+			track += np.einsum('ai,ibc->abc', kernel, jitter_root)
+
+			self.tracks.append(track)
 
 
 	def parse_sample(self, sample):
 
-		shift_track = self.shift_tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
-
-		cam_gt = sample.cam_gt.flatten()
+		track = self.tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
 
 		mask = np.ones(self.in_frames).astype(np.float32)
 
@@ -235,11 +262,17 @@ class Exam(data.Dataset):
 
 		mask[occ_anchor:occ_anchor + occ_duration] = 0.0
 
-		shift_track = shift_track.reshape(self.in_frames, -1).transpose()
+		track = track.transpose(1, 2, 0)  # (17, 3, in_frames)
 
-		mask = mask.reshape(-1, self.in_frames)
+		mask = mask.reshape(-1, self.in_frames)  # (1, in_frames)
 
-		return shift_track * mask, mask, cam_gt, np.uint8([blind])
+		track = track * mask
+
+		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)  # (16 x 3, in_frames)
+
+		root_track = track[-1]  # (3, in_frames)
+
+		return rootrel_track, root_track, mask, sample.cam_gt, np.uint8([blind])
 
 
 	def __getitem__(self, index):
