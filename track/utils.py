@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def analyze(cam_spec, cam_gt, blind, n_joints, thresh):
+def analyze(cam_spec, cam_gt, blind, thresh):
 	'''
 	Analyzes tracking performance of a single batch.
 
@@ -10,25 +10,33 @@ def analyze(cam_spec, cam_gt, blind, n_joints, thresh):
 		cam_gt: (batch, n_joints x 3) <float32>
 		blind: (batch,) <bool>
 	'''
-	cam_gt = cam_gt.reshape(-1, n_joints, 3) * 100.0
-	cam_spec = cam_spec.reshape(-1, n_joints, 3) * 100.0
+	batch = cam_gt.shape[0]
 
-	dist = np.linalg.norm(cam_spec - cam_gt, axis = -1).flatten()
+	cam_gt = cam_gt.reshape(batch, -1, 3) * 100.0
+	cam_spec = cam_spec.reshape(batch, -1, 3) * 100.0
 
-	score_pck = np.mean(dist / thresh <= 1.0)
-	score_auc = np.mean(np.maximum(0, 1 - dist / thresh))
+	rootrel_gt = cam_gt[:, :-1] - cam_gt[:, -1:]  # (batch, n_joints - 1, 3)
+	rootrel_spec = cam_spec[:, :-1] - cam_spec[:, -1:]  # (batch, n_joints - 1, 3)
+
+	root_dist = np.linalg.norm(cam_gt[:, -1] - cam_spec[:, -1], axis = -1)  # (batch,)
+
+	rootrel_dist = np.linalg.norm(rootrel_gt - rootrel_spec, axis = -1)  # (batch, n_joints - 1)
+
+	score_pck = np.mean(rootrel_dist / thresh <= 1.0)
+	score_auc = np.mean(np.maximum(0, 1 - rootrel_dist / thresh))
 
 	return dict(
-		mean = np.mean(dist),
+		root = np.mean(root_dist),
+		mean = np.mean(rootrel_dist),
 		score_auc = score_auc,
 		score_pck = score_pck,
-		batch = dist.shape[0]
+		batch_size = batch
 	)
 
 
 def parse_epoch(stats):
 
-	keys = ['mean', 'score_auc', 'score_pck', 'batch']
+	keys = ['root', 'mean', 'score_auc', 'score_pck', 'batch_size']
 
 	values = np.array([[patch[key] for patch in stats] for key in keys])
 

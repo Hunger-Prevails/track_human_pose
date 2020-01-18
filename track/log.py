@@ -5,7 +5,7 @@ import numpy as np
 class Logger:
 
     def __init__(self, args, state):
-        self.state = state if state else dict(best_auc = 0, best_pck = 0, best_mean = 0, best_epoch = 0, epoch = 0)
+        self.state = state if state else dict(best_auc = 0, best_pck = 0, best_root = -1, best_mean = -1, best_epoch = 0, epoch = 0)
 
         if not os.path.exists(args.save_path):
             os.mkdir(args.save_path)
@@ -46,6 +46,7 @@ class Logger:
 
                 self.state['best_auc'] = test_recs['score_auc']
                 self.state['best_pck'] = test_recs['score_pck']
+                self.state['best_root'] = test_recs['root']
                 self.state['best_mean'] = test_recs['mean']
 
                 best = os.path.join(self.save_path, 'best.pth')
@@ -77,6 +78,7 @@ class Logger:
     def final_print(self):
 
         message = '=> Best Epoch: %3d' % (self.state['best_epoch'])
+        message += '  Root: %1.4f' % (self.state['best_root'])
         message += '  Mean: %1.4f' % (self.state['best_mean'])
         message += '  AuC: %1.4f' % (self.state['best_auc'])
         message += '  PcK: %1.4f' % (self.state['best_pck'])

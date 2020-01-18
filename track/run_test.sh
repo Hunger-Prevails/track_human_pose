@@ -1,6 +1,6 @@
 python main.py \
 				-test_only \
-				-model Dilate \
+				-model Diff \
 				-suffix baseline \
 				-save_path /globalwork/liu/track_camera_pose \
 				-criterion SmoothL1 \

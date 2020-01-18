@@ -20,7 +20,6 @@ class Trainer:
 
         self.thresh_score = args.thresh_score
         self.n_cudas = args.n_cudas
-        self.n_joints = args.n_joints
         self.half_acc = args.half_acc
         self.in_frames = args.in_frames
 
@@ -197,7 +196,7 @@ class Trainer:
             '''
             blind = blind.numpy().astype(np.bool)
 
-            cam_stats.append(utils.analyze(cam_spec, cam_gt, blind, self.n_joints, self.thresh_score))
+            cam_stats.append(utils.analyze(cam_spec, cam_gt, blind, self.thresh_score))
 
         loss_avg /= total
 
@@ -206,6 +205,7 @@ class Trainer:
 
         message = '=> test Epoch[%d]' % (epoch)
         message += '  Loss: %1.4f' % (loss_avg)
+        message += '  Root: %1.4f' % (record['root'])
         message += '  Mean: %1.4f' % (record['mean'])
         message += '  AuC: %1.4f' % (record['score_auc'])
         message += '  PcK: %1.4f' % (record['score_pck'])
