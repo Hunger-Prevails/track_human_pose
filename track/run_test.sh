@@ -1,8 +1,11 @@
-python main.py \
-				-test_only \
-				-model Diff \
-				-suffix baseline \
-				-save_path /globalwork/liu/track_camera_pose \
-				-criterion SmoothL1 \
-				-data_name mpihp \
-				-data_root /globalwork/data/mpi_inf_3dhp
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 0
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 5
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 10
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 15
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 20
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 25
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 30
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 35
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 40
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 45
+python main.py -test_only -model Diff -suffix baseline -save_path /globalwork/liu/track_camera_pose -criterion SmoothL1 -data_name mpihp -data_root /globalwork/data/mpi_inf_3dhp -occ_span 50

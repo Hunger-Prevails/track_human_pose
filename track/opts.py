@@ -17,6 +17,7 @@ parser.add_argument('-data_name', required=True, help='name of dataset')
 parser.add_argument('-data_root', required=True, help='root path to dataset')
 
 # integer options
+parser.add_argument('-occ_span', default=0, type=int, help='number of frames masked out')
 parser.add_argument('-in_features', default=3, type=int, help='number of features for each joint')
 parser.add_argument('-in_frames', default=81, type=int, help='length of tracklet as input of the network')
 parser.add_argument('-n_joints', default=17, type=int, help='number of joints in the dataset')

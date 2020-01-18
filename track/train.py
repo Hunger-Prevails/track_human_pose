@@ -114,14 +114,13 @@ class Trainer:
 
         cam_stats = []
 
-        for i, (rootrel_track, root_track, mask, cam_gt, blind) in enumerate(test_loader):
+        for i, (rootrel_track, root_track, mask, cam_gt) in enumerate(test_loader):
             '''
             Args:
                 rootrel_track: (batch, 16 x 3, in_frames) <float32>
                 root_track: (batch, 3, in_frames) <float32>
                 mask: (batch, 1, in_frames) <float32>
                 cam_gt: (batch, 17, 3) <float32>
-                blind: (batch,) <uint8>
             '''
             if self.n_cudas:
                 rootrel_track = rootrel_track.to(cudevice)
@@ -194,9 +193,7 @@ class Trainer:
 
                 plt.show()
             '''
-            blind = blind.numpy().astype(np.bool)
-
-            cam_stats.append(utils.analyze(cam_spec, cam_gt, blind, self.thresh_score))
+            cam_stats.append(utils.analyze(cam_spec, cam_gt, self.thresh_score))
 
         loss_avg /= total
 

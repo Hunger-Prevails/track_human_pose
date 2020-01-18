@@ -68,10 +68,10 @@ def get_data_loader(args, phase):
 
 class Sample:
 
-	def __init__(self, anchor, track_id):
+	def __init__(self, anchor, i_track):
 
 		self.anchor = anchor
-		self.track_id = track_id
+		self.i_track = i_track
 
 
 class Lecture(data.Dataset):
@@ -91,9 +91,9 @@ class Lecture(data.Dataset):
 
 		self.samples = []
 
-		for track_id, track in enumerate(gt_tracks):
+		for i_track, track in enumerate(gt_tracks):
 
-			self.samples += [Sample(frame, track_id) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
+			self.samples += [Sample(frame, i_track) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
 
 		landmarks = np.linspace(-1.0, 1.0, args.in_frames).reshape(-1, 1)
 
@@ -104,7 +104,7 @@ class Lecture(data.Dataset):
 
 	def parse_sample(self, sample):
 
-		gt_track = self.gt_tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
+		gt_track = self.gt_tracks[sample.i_track][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
 
 		cam_gt = gt_track[-1]
 
@@ -137,21 +137,19 @@ class Lecture(data.Dataset):
 
 		occ_anchor = np.random.randint(low = 0, high = self.in_frames + 1)
 
-		occ_duration = int(np.round(np.random.exponential(scale = self.beta)))
+		occ_span = int(np.round(np.random.exponential(scale = self.beta)))
 
-		blind = self.in_frames <= occ_anchor + occ_duration and occ_anchor < self.in_frames
+		mask[occ_anchor:occ_anchor + occ_span] = 0.0
 
-		mask[occ_anchor:occ_anchor + occ_duration] = 0.0
+		track = track.transpose(1, 2, 0)
 
-		track = track.transpose(1, 2, 0)  # (17, 3, in_frames)
-
-		mask = mask.reshape(-1, self.in_frames)  # (1, in_frames)
+		mask = mask.reshape(-1, self.in_frames)
 
 		track = track * mask
 
-		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)  # (16 x 3, in_frames)
+		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)
 
-		root_track = track[-1]  # (3, in_frames)
+		root_track = track[-1]
 
 		return rootrel_track, root_track, mask, cam_gt
 
@@ -168,6 +166,7 @@ class Exam(data.Dataset):
 
 	def __init__(self, gt_tracks, args):
 
+		self.occ_span = args.occ_span
 		self.in_frames = args.in_frames
 		self.n_joints = args.n_joints
 
@@ -177,41 +176,19 @@ class Exam(data.Dataset):
 
 		root_random = '/globalwork/liu/mpihp_random'
 
-		for track_id, track in enumerate(gt_tracks):
+		for i_track, track in enumerate(gt_tracks):
 
-			self.samples += [Sample(frame, track_id) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
+			self.samples += [Sample(frame, i_track) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
 
-		path_occ_anchor = os.path.join(root_random, 'occ_anchor.npy')
+		for sample in self.samples:
 
-		if os.path.exists(path_occ_anchor):
+			sample.cam_gt = gt_tracks[sample.i_track][sample.anchor + args.in_frames - 1]
 
-			occ_anchor = np.load(path_occ_anchor)
-		else:
-			occ_anchor = np.random.randint(low = 0, high = args.in_frames + 1, size = len(self.samples))
+		for i_track, track in enumerate(gt_tracks):
 
-			np.save(path_occ_anchor, occ_anchor)
+			track = track.copy()
 
-		path_occ_duration = os.path.join(root_random, 'occ_duration.npy')
-
-		if os.path.exists(path_occ_duration):
-
-			occ_duration = np.load(path_occ_duration)
-		else:
-			occ_duration = np.random.exponential(scale = args.beta, size = len(self.samples)).astype(np.int)
-
-			np.save(path_occ_duration, occ_duration)
-
-		for sample_id, sample in enumerate(self.samples):
-
-			sample.cam_gt = gt_tracks[sample.track_id][sample.anchor + args.in_frames - 1].copy()
-
-			sample.occ_anchor = occ_anchor[sample_id]
-
-			sample.occ_duration = occ_duration[sample_id]
-
-		for track_id, track in enumerate(gt_tracks):
-
-			path_jitter = os.path.join(root_random, 'jitter_' + str(track_id) + '.npy')
+			path_jitter = os.path.join(root_random, 'jitter_' + str(i_track) + '.npy')
 
 			if os.path.exists(path_jitter):
 
@@ -221,7 +198,7 @@ class Exam(data.Dataset):
 
 				np.save(path_jitter, jitter)
 
-			path_jitter_root = os.path.join(root_random, 'jitter_root_' + str(track_id) + '.npy')
+			path_jitter_root = os.path.join(root_random, 'jitter_root_' + str(i_track) + '.npy')
 
 			if os.path.exists(path_jitter_root):
 
@@ -250,29 +227,23 @@ class Exam(data.Dataset):
 
 	def parse_sample(self, sample):
 
-		track = self.tracks[sample.track_id][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
+		track = self.tracks[sample.i_track][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
 
 		mask = np.ones(self.in_frames).astype(np.float32)
 
-		occ_anchor = sample.occ_anchor
+		mask[self.in_frames - self.occ_span:] = 0.0
 
-		occ_duration = sample.occ_duration
+		track = track.transpose(1, 2, 0)
 
-		blind = self.in_frames <= occ_anchor + occ_duration and occ_anchor < self.in_frames
-
-		mask[occ_anchor:occ_anchor + occ_duration] = 0.0
-
-		track = track.transpose(1, 2, 0)  # (17, 3, in_frames)
-
-		mask = mask.reshape(-1, self.in_frames)  # (1, in_frames)
+		mask = mask.reshape(-1, self.in_frames)
 
 		track = track * mask
 
-		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)  # (16 x 3, in_frames)
+		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)
 
-		root_track = track[-1]  # (3, in_frames)
+		root_track = track[-1]
 
-		return rootrel_track, root_track, mask, sample.cam_gt, np.uint8([blind])
+		return rootrel_track, root_track, mask, sample.cam_gt
 
 
 	def __getitem__(self, index):

@@ -10,6 +10,7 @@ from train import Trainer
 
 import tracknet
 
+
 def create_model(args):
 
     model = getattr(tracknet, args.model + 'Net')(args)
@@ -18,8 +19,8 @@ def create_model(args):
     if args.test_only:
         save_path = os.path.join(args.save_path, args.model + '-' + args.suffix)
 
-        print "=> Loading checkpoint from " + os.path.join(save_path, 'best.pth')
-        assert os.path.exists(save_path), "[!] Checkpoint " + save_path + " doesn't exist" 
+        print '=> Loading checkpoint from ' + os.path.join(save_path, 'best.pth')
+        assert os.path.exists(save_path), '[!] Checkpoint ' + save_path + ' does not exist'
 
         best = torch.load(os.path.join(save_path, 'best.pth'))
         best = best['best'];
@@ -30,7 +31,7 @@ def create_model(args):
         model.load_state_dict(checkpoint)
 
     if args.resume:
-        print "=> Loading checkpoint from " + args.model_path
+        print '=> Loading checkpoint from ' + args.model_path
         checkpoint = torch.load(args.model_path)
         
         model.load_state_dict(checkpoint['model'])
@@ -41,28 +42,33 @@ def create_model(args):
 
     return model, state
 
+
 def main():
     model, state = create_model(args)
-    print "=> Model and criterion are ready"
+    print '=> Model and criterion are ready'
 
     if not args.test_only:
         data_loader = get_data_loader(args, 'train')
 
     test_loader = get_data_loader(args, 'test')
-    print "=> Dataloaders are ready"
+    print '=> Dataloaders are ready'
 
     logger = Logger(args, state)
-    print "=> Logger is ready"
+    print '=> Logger is ready'
 
     trainer = Trainer(args, model)
-    print "=> Trainer is ready"
+    print '=> Trainer is ready'
 
     if args.test_only:
+        print '=> Start testing'
+
         test_rec = trainer.test(0, test_loader)
 
+        logger.append(test_rec)
     else:
+        print '=> Start training'
+
         start_epoch = logger.state['epoch'] + 1
-        print "=> Start training"
         
         for epoch in xrange(start_epoch, args.n_epochs + 1):
             train_rec = trainer.train(epoch, data_loader)
@@ -71,6 +77,7 @@ def main():
             logger.record(epoch, train_rec, test_rec, model) 
 
         logger.final_print()
+
 
 if __name__ == '__main__':
     main()

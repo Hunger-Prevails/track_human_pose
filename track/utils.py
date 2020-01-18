@@ -1,14 +1,13 @@
 import numpy as np
 
 
-def analyze(cam_spec, cam_gt, blind, thresh):
+def analyze(cam_spec, cam_gt, thresh):
 	'''
 	Analyzes tracking performance of a single batch.
 
 	Args:
 		cam_spec: (batch, n_joints x 3) <float32>
 		cam_gt: (batch, n_joints x 3) <float32>
-		blind: (batch,) <bool>
 	'''
 	batch = cam_gt.shape[0]
 

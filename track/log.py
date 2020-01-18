@@ -18,17 +18,32 @@ class Logger:
         assert args.save_record != args.test_only
 
         self.save_record = args.save_record
-        self.train_record = None
 
 
-    def record(self, epoch, train_recs, test_recs, model):
+    def append(self, test_rec):
+
+        save_path = './profile.pth'
+
+        if os.path.exists(save_path):
+
+            profile = torch.load(save_path)
+
+            profile = dict([(key, profile[key] + [value]) for key, value in test_rec.items()])
+        else:
+            profile = dict([(key, [value]) for key, value in test_rec.items()])
+
+        torch.save(profile, save_path)
+
+        print '\n=> profile saved to', save_path, '\n'
+
+    def record(self, epoch, train_rec, test_rec, model):
 
         if torch.typename(model).find('DataParallel') != -1:
             model = model.module
 
         self.state['epoch'] = epoch
 
-        if train_recs:
+        if train_rec:
             model_file = os.path.join(self.save_path, 'model_%d.pth' % epoch);
 
             checkpoint = dict()
@@ -37,43 +52,38 @@ class Logger:
 
             torch.save(checkpoint, model_file)
 
-        if test_recs:
-            score_sum = test_recs['score_auc']
+        if test_rec:
+            score_sum = test_rec['score_auc']
             best_sum = self.state['best_auc']
 
             if score_sum > best_sum:
                 self.state['best_epoch'] = epoch
 
-                self.state['best_auc'] = test_recs['score_auc']
-                self.state['best_pck'] = test_recs['score_pck']
-                self.state['best_root'] = test_recs['root']
-                self.state['best_mean'] = test_recs['mean']
+                self.state['best_auc'] = test_rec['score_auc']
+                self.state['best_pck'] = test_rec['score_pck']
+                self.state['best_root'] = test_rec['root']
+                self.state['best_mean'] = test_rec['mean']
 
                 best = os.path.join(self.save_path, 'best.pth')
                 torch.save({'best': epoch}, best)
 
-        train_recs.update(test_recs)
+        train_rec.update(test_rec)
 
         if self.save_record:
 
-            if self.train_record:
-                keys = [key for key in train_recs]
+            save_path = os.path.join(self.save_path, 'protocol.pth')
 
-                records = [self.train_record[key] + [train_recs[key]] for key in train_recs]
+            if os.path.exists(save_path):
 
-                self.train_record = dict(zip(keys, records))
+                protocol = torch.load(save_path)
+
+                protocol = dict([(key, protocol[key] + [value]) for key, value in train_rec.items()])
             else:
-                keys = [key for key in train_recs]
+                protocol = dict([(key, [value]) for key, value in train_rec.items()])
 
-                records = [[train_recs[key]] for key in train_recs]
+            torch.save(protocol, save_path)
 
-                self.train_record = dict(zip(keys, records))
-
-            torch.save(self.train_record, os.path.join(self.save_path, 'train_record.pth'))
-
-            print '\n=> train record saved to', os.path.join(self.save_path, 'train_record.pth')
-            print ''
-
+            print '\n=> protocol saved to', save_path, '\n'
 
     def final_print(self):
 
