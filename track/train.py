@@ -20,8 +20,8 @@ class Trainer:
 
         self.thresh_score = args.thresh_score
         self.n_cudas = args.n_cudas
-        self.half_acc = args.half_acc
         self.in_frames = args.in_frames
+        self.occ_span = args.occ_span
 
         self.learn_rate = args.learn_rate
         self.num_epochs = args.n_epochs
@@ -46,18 +46,15 @@ class Trainer:
         loss_avg = 0
         total = 0
 
-        for i, (rootrel_track, root_track, mask, cam_gt) in enumerate(data_loader):
+        for i, (cam_track, mask, cam_gt) in enumerate(data_loader):
             '''
             Args:
-                rootrel_track: (batch, 16 x 3, in_frames) <float32>
-                root_track: (batch, 3, in_frames) <float32>
+                cam_track: (batch, 17 x 3, in_frames) <float32>
                 mask: (batch, 1, in_frames) <float32>
                 cam_gt: (batch, 17, 3) <float32>
             '''
             if self.n_cudas:
-                rootrel_track = rootrel_track.to(cudevice)
-
-                root_track = root_track.to(cudevice)
+                cam_track = cam_track.to(cudevice)
 
                 mask = mask.to(cudevice)
 
@@ -65,15 +62,15 @@ class Trainer:
 
             batch = mask.size(0)
 
-            rootrel_spec, root_spec = self.model(rootrel_track, root_track, mask, self.ones)
+            cam_spec = self.model(cam_track, mask, self.ones)  # (batch, 17, 3)
 
-            rootrel_spec = rootrel_spec.view(batch, -1, 3)  # (batch, 16, 3)
+            rootrel_spec = cam_spec[:, :-1] - cam_spec[:, -1:]  # (batch, 16, 3)
 
             rootrel_gt = cam_gt[:, :-1] - cam_gt[:, -1:]  # (batch, 16, 3)
 
             loss_rootrel = self.criterion(rootrel_spec, rootrel_gt)
 
-            root_spec = root_spec.view(batch, -1, 3)  # (batch, 1, 3)
+            root_spec = cam_spec[:, -1:]
 
             root_gt = cam_gt[:, -1:]  # (batch, 1, 3)
 
@@ -114,18 +111,15 @@ class Trainer:
 
         cam_stats = []
 
-        for i, (rootrel_track, root_track, mask, cam_gt) in enumerate(test_loader):
+        for i, (cam_track, mask, cam_gt) in enumerate(test_loader):
             '''
             Args:
-                rootrel_track: (batch, 16 x 3, in_frames) <float32>
-                root_track: (batch, 3, in_frames) <float32>
+                cam_track: (batch, 17 x 3, in_frames) <float32>
                 mask: (batch, 1, in_frames) <float32>
                 cam_gt: (batch, 17, 3) <float32>
             '''
             if self.n_cudas:
-                rootrel_track = rootrel_track.to(cudevice)
-
-                root_track = root_track.to(cudevice)
+                cam_track = cam_track.to(cudevice)
 
                 mask = mask.to(cudevice)
 
@@ -135,15 +129,15 @@ class Trainer:
 
             with torch.no_grad():
 
-                rootrel_spec, root_spec = self.model(rootrel_track, root_track, mask, self.ones)
+                cam_spec = self.model(cam_track, mask, self.ones)  # (batch, 17, 3)
 
-                rootrel_spec = rootrel_spec.view(batch, -1, 3)  # (batch, 16, 3)
+                rootrel_spec = cam_spec[:, :-1] - cam_spec[:, -1:]  # (batch, 16, 3)
 
                 rootrel_gt = cam_gt[:, :-1] - cam_gt[:, -1:]  # (batch, 16, 3)
 
                 loss_rootrel = self.criterion(rootrel_spec, rootrel_gt)
 
-                root_spec = root_spec.view(batch, -1, 3)  # (batch, 1, 3)
+                root_spec = cam_spec[:, -1:]
 
                 root_gt = cam_gt[:, -1:]  # (batch, 1, 3)
 
@@ -157,19 +151,17 @@ class Trainer:
 
             print '| test Epoch[%d] [%d/%d] Loss: %1.4f' % (epoch, i, n_batches, loss.item())
 
-            rootrel_spec = rootrel_spec.cpu().numpy()
-
-            root_spec = root_spec.cpu().numpy()
-
-            cam_spec = np.concatenate([(rootrel_spec + root_spec), root_spec], axis = 1)
+            cam_spec = cam_spec.cpu().numpy()
 
             cam_gt = cam_gt.cpu().numpy()
             '''
-            rootrel_track = rootrel_track.cpu().numpy().reshape(batch, -1, 3, self.in_frames)
+            cam_track = cam_track.cpu().numpy().reshape(batch, -1, 3, self.in_frames)
 
-            root_track = root_track.cpu().numpy().reshape(batch, -1, 3, self.in_frames)
+            middle = (self.in_frames - 1) / 2
 
-            cam_track = np.concatenate([rootrel_track + root_track, root_track], axis = 1)
+            offset = self.occ_span + 1
+
+            cam_spec = np.mean(cam_track[:, :, :, [middle - offset, middle + offset]], axis = -1)
 
             from plot import show_cam
 

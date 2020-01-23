@@ -3,7 +3,6 @@ import argparse
 parser = argparse.ArgumentParser(description='list of train/test options')
 
 # bool options
-parser.add_argument('-half_acc', action='store_true', help='whether to use half precision for speed-up')
 parser.add_argument('-test_only', action='store_true', help='only performs test')
 parser.add_argument('-resume', action='store_true', help='whether to continue from a previous checkpoint')
 parser.add_argument('-save_record', action='store_true', help='Path to save train record')
@@ -37,7 +36,7 @@ parser.add_argument('-zeta', default=0.5, type=float, help='zeta for determining
 parser.add_argument('-sigma', default=5e-3, type=float, help='sigma for normal sampling on root-rel jitter')
 parser.add_argument('-sigma_root_xy', default=1e-2, type=float, help='sigma for normal sampling on root-xy jitter')
 parser.add_argument('-sigma_root_zz', default=2e-2, type=float, help='sigma for normal sampling on root-zz jitter')
-parser.add_argument('-beta', default=5.0, type=float, help='reciprocal of lamba for exponential sampling on occlusion duration')
+parser.add_argument('-beta', default=10.0, type=float, help='reciprocal of lamba for exponential sampling on occlusion duration')
 parser.add_argument('-thresh_rel', default=10.0, type=float, help='dist threshold on root-relative cam coord for a positive association')
 parser.add_argument('-thresh_cam', default=20.0, type=float, help='dist threshold on cam coord for a positive association')
 parser.add_argument('-thresh_score', default=15.0, type=float, help='threshold for score measurement')

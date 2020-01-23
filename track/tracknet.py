@@ -9,18 +9,18 @@ class StrideNet(nn.Module):
 
 		super(StrideNet, self).__init__()
 
+		self.n_blocks = args.n_blocks
+
+		self.inflation = args.inflation
+
+		self.expand_conv = nn.Conv1d(args.n_joints * 3, args.channels, 1, bias = False)
+		self.expand_bn = nn.BatchNorm1d(args.channels)
+
 		self.stride_convs = []
 		self.stride_bns = []
 
 		self.smooth_convs = []
 		self.smooth_bns = []
-
-		self.n_blocks = args.n_blocks
-
-		self.inflation = args.inflation
-
-		self.expand_conv = nn.Conv1d(args.n_joints * args.in_features, args.channels, 3, stride = args.inflation, bias = False)
-		self.expand_bn = nn.BatchNorm1d(args.channels)
 
 		for k in xrange(args.n_blocks):
 
@@ -53,27 +53,21 @@ class StrideNet(nn.Module):
 	def forward(self, x, mask, ones):
 		'''
 		Args:
-			x: (batch, n_joints x in_features, n_frames)
+			x: (batch, 17 x 3, n_frames)
 			mask: (batch, 1, n_frames)
 			ones: (1, 1, 3)
 		Return:
-			(batch, n_joints x 3)
+			(batch, 17, 3)
 		'''
-		expand_x = self.expand_conv(x)
+		batch = x.size(0)
 
-		expand_mask = F.conv1d(mask, ones, stride = self.inflation)
+		mean_x = x.sum(dim = -1, keepdim = True) / mask.sum(dim = -1, keepdim = True)
 
-		mask = (expand_mask != 0).float()
-
-		multiplier = (1.0 / (expand_mask + 1e-6)) * mask
-
-		expand_x *= multiplier
-
-		x = F.relu(self.expand_bn(expand_x))
+		x = F.relu(self.expand_bn(self.expand_conv(x - mean_x)))
 
 		for k in xrange(self.n_blocks):
 
-			res = x[:, :, 2::self.inflation]
+			res_x = x[:, :, 1::self.inflation]
 
 			stride_x = self.stride_convs[k](x)
 
@@ -81,21 +75,21 @@ class StrideNet(nn.Module):
 
 			mask = (stride_mask != 0).float()
 
-			multiplier = (1.0 / (stride_mask + 1e-6)) * mask
+			multiplier = (3.0 / (stride_mask + 1e-6)) * mask
 
 			stride_x *= multiplier
 
 			x = F.relu(self.stride_bns[k](stride_x))
-
 			x = F.relu(self.smooth_bns[k](self.smooth_convs[k](x)))
 
-			x += res
+			x += res_x
 
 		x = x.squeeze(-1)
+		mean_x = mean_x.squeeze(-1)
 
-		x = F.relu(self.a_lin(x))
+		x = self.b_lin(F.relu(self.a_lin(x))) + mean_x  # (batch, 17 x 3)
 
-		return self.b_lin(x)
+		return x.view(batch, -1, 3)
 
 
 class DiffNet(nn.Module):
@@ -180,15 +174,15 @@ class DiffNet(nn.Module):
 			(batch, 16 x 3)
 			(batch, 3)
 		'''
-		mean_y = y.mean(dim = -1, keepdim = True)
+		mean_y = y.sum(dim = -1, keepdim = True) / mask.sum(dim = -1, keepdim = True)
 
 		x = F.relu(self.expand_bn(self.expand_conv(x)))
 		y = F.relu(self.root_expand_bn(self.root_expand_conv(y - mean_y)))
 
 		for k in xrange(self.n_blocks):
 
-			res_x = x[:, :, 2::self.inflation]
-			res_y = y[:, :, 2::self.inflation]
+			res_x = x[:, :, 1::self.inflation]
+			res_y = y[:, :, 1::self.inflation]
 
 			stride_x = self.stride_convs[k](x)
 			stride_y = self.root_stride_convs[k](y)
@@ -197,7 +191,7 @@ class DiffNet(nn.Module):
 
 			mask = (stride_mask != 0).float()
 
-			multiplier = (1.0 / (stride_mask + 1e-6)) * mask
+			multiplier = (3.0 / (stride_mask + 1e-6)) * mask
 
 			stride_x *= multiplier
 			stride_y *= multiplier

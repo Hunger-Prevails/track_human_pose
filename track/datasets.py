@@ -95,6 +95,8 @@ class Lecture(data.Dataset):
 
 			self.samples += [Sample(frame, i_track) for frame in xrange(0, track.shape[0] - args.in_frames, args.stride)]
 
+		self.samples = [sample for sample in self.samples if self.is_dynamic(sample, gt_tracks)]
+
 		landmarks = np.linspace(-1.0, 1.0, args.in_frames).reshape(-1, 1)
 
 		self.kernel = landmarks ** 2 + landmarks.T ** 2 - 2 * np.dot(landmarks, landmarks.T)
@@ -102,24 +104,33 @@ class Lecture(data.Dataset):
 		self.kernel = np.exp(- 0.5 / args.zeta * self.kernel)
 
 
+	def is_dynamic(self, sample, gt_tracks):
+
+		gt_track = gt_tracks[sample.i_track][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
+
+		displace = np.linalg.norm(gt_track[1:] - gt_track[:-1], axis = -1)  # (in_frames - 1, 17)
+
+		return np.mean(np.max(displace, axis = -1) > 0.01) > 0.2
+
+
 	def parse_sample(self, sample):
 
 		gt_track = self.gt_tracks[sample.i_track][sample.anchor:sample.anchor + self.in_frames]  # (in_frames, 17, 3)
 
-		cam_gt = gt_track[-1]
+		cam_gt = gt_track[(self.in_frames - 1) / 2]
 
 		track = gt_track.copy()
 
 		jitter = np.random.normal(loc = 0.0, scale = self.sigma, size = (self.in_frames, self.n_joints - 1, 3))
-
-		track[:, :-1] += np.einsum('ai,ibc->abc', self.kernel, jitter)
 
 		jitter_root_xy = np.random.normal(loc = 0.0, scale = self.sigma_root_xy, size = (self.in_frames, 1, 2))
 		jitter_root_zz = np.random.normal(loc = 0.0, scale = self.sigma_root_zz, size = (self.in_frames, 1, 1))
 
 		jitter_root = np.concatenate([jitter_root_xy, jitter_root_zz], axis = -1)
 
-		track += np.einsum('ai,ibc->abc', self.kernel, jitter_root)
+		# track[:, :-1] += np.einsum('ai,ibc->abc', self.kernel, jitter)
+
+		# track += np.einsum('ai,ibc->abc', self.kernel, jitter_root)
 		'''
 		from plot import show_cam
 
@@ -134,24 +145,23 @@ class Lecture(data.Dataset):
 		plt.show()
 		'''
 		mask = np.ones(self.in_frames).astype(np.float32)
+		# if np.random.random() < 0.5:
 
-		occ_anchor = np.random.randint(low = 0, high = self.in_frames + 1)
+		# 	span_pool = np.arange(11)
 
-		occ_span = int(np.round(np.random.exponential(scale = self.beta)))
+		# 	chances = 1.0 / (span_pool + 1)
 
-		mask[occ_anchor:occ_anchor + occ_span] = 0.0
+		# 	occ_span = np.random.choice(span_pool, p = chances / chances.sum())
 
-		track = track.transpose(1, 2, 0)
+		# 	mask[(self.in_frames - 1) / 2 - occ_span:(self.in_frames - 1) / 2 + occ_span + 1] = 0.0
+
+		track = track.transpose(1, 2, 0).reshape(-1, self.in_frames)
 
 		mask = mask.reshape(-1, self.in_frames)
 
 		track = track * mask
 
-		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)
-
-		root_track = track[-1]
-
-		return rootrel_track, root_track, mask, cam_gt
+		return track, mask, cam_gt
 
 
 	def __getitem__(self, index):
@@ -182,7 +192,7 @@ class Exam(data.Dataset):
 
 		for sample in self.samples:
 
-			sample.cam_gt = gt_tracks[sample.i_track][sample.anchor + args.in_frames - 1]
+			sample.cam_gt = gt_tracks[sample.i_track][sample.anchor + (args.in_frames - 1) / 2]
 
 		for i_track, track in enumerate(gt_tracks):
 
@@ -218,9 +228,9 @@ class Exam(data.Dataset):
 
 			kernel = np.exp(- 0.5 / args.zeta * kernel)
 
-			track[:, :-1] += np.einsum('ai,ibc->abc', kernel, jitter)
+			# track[:, :-1] += np.einsum('ai,ibc->abc', kernel, jitter)
 
-			track += np.einsum('ai,ibc->abc', kernel, jitter_root)
+			# track += np.einsum('ai,ibc->abc', kernel, jitter_root)
 
 			self.tracks.append(track)
 
@@ -231,19 +241,15 @@ class Exam(data.Dataset):
 
 		mask = np.ones(self.in_frames).astype(np.float32)
 
-		mask[self.in_frames - self.occ_span:] = 0.0
+		# mask[(self.in_frames - 1) / 2 - self.occ_span:(self.in_frames - 1) / 2 + self.occ_span + 1] = 0.0
 
-		track = track.transpose(1, 2, 0)
+		track = track.transpose(1, 2, 0).reshape(-1, self.in_frames)
 
 		mask = mask.reshape(-1, self.in_frames)
 
 		track = track * mask
 
-		rootrel_track = (track[:-1] - track[-1:]).reshape(-1, self.in_frames)
-
-		root_track = track[-1]
-
-		return rootrel_track, root_track, mask, sample.cam_gt
+		return track, mask, sample.cam_gt
 
 
 	def __getitem__(self, index):

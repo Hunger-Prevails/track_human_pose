@@ -3,10 +3,10 @@ import sys
 import numpy as np
 
 def main(model, suffix, *keys):
-	record = torch.load('/globalwork/liu/track_camera_pose/' + model + '-' + suffix + '/train_record.pth')
+	record = torch.load('/globalwork/liu/track_camera_pose/' + model + '-' + suffix + '/protocol.pth')
 
 	for key in keys:
-		strings = ['%2.4f' % (val) for val in record[key]]
+		strings = ['%2.5f' % (val) for val in record[key]]
 		max_idx = np.argmax(np.array(record[key]))
 		min_idx = np.argmin(np.array(record[key]))
 
@@ -21,7 +21,7 @@ def main(model, suffix, *keys):
 	print 'best:', best
 
 	for key in keys:
-		strings = ['%2.4f' % (val) for val in record[key]]
+		strings = ['%2.5f' % (val) for val in record[key]]
 		print key + ':', strings[best - 1]
 
 if __name__ == '__main__':
